@@ -46,9 +46,7 @@ def count_semantic_classes():
     pdtb = CorpusReader('pdtb2.csv')
     d = defaultdict(int)
     for datum in pdtb.iter_data():
-        sc = datum.ConnHeadSemClass1
-        # Filter None values (should be just EntRel/NonRel data):
-        if sc:
+        if sc := datum.ConnHeadSemClass1:
             d[sc] += 1
     return d
 
@@ -74,9 +72,7 @@ def connective_distribution():
     pdtb = CorpusReader('pdtb2.csv')
     d = defaultdict(lambda : defaultdict(int))
     for datum in pdtb.iter_data():
-        cs = datum.conn_str(distinguish_implicit=False)
-        # Filter None values (should be just EntRel/NoRel data):
-        if cs:
+        if cs := datum.conn_str(distinguish_implicit=False):
             # Downcase for further collapsing, and add 1:
             d[datum.Relation][cs.lower()] += 1
     return d
@@ -111,8 +107,7 @@ def attribution_counts():
     pdtb = CorpusReader('pdtb2.csv')
     d = defaultdict(int)
     for datum in pdtb.iter_data():
-        src = datum.Attribution_Source
-        if src:
+        if src := datum.Attribution_Source:
             d[src] += 1
     return d
 
@@ -120,8 +115,7 @@ def print_attribution_texts():
     """Inspect the strings characterizing attribution values."""
     pdtb = CorpusReader('pdtb2.csv')
     for datum in pdtb.iter_data(display_progress=False):
-        txt = datum.Attribution_RawText
-        if txt:
+        if txt := datum.Attribution_RawText:
             print(txt)
 
 ######################################################################
@@ -130,21 +124,14 @@ def adjacency_check(datum):
     """Return True if datum is of the form Arg1 (connective) Arg2, else False"""    
     if not datum.arg1_precedes_arg2():
         return False
-    arg1_finish = max([x for span in datum.Arg1_SpanList for x in span])
-    arg2_start = min([x for span in datum.Arg2_SpanList for x in span])    
+    arg1_finish = max(x for span in datum.Arg1_SpanList for x in span)
+    arg2_start = min(x for span in datum.Arg2_SpanList for x in span)
     if datum.Relation == 'Implicit':
-        if (arg2_start - arg1_finish) <= 3:
-            return True
-        else:
-            return False
-    else:
-        conn_indices = [x for span in datum.Connective_SpanList for x in span]
-        conn_start = min(conn_indices)
-        conn_finish = max(conn_indices)
-        if (conn_start - arg1_finish) <= 3 and (arg2_start - conn_finish) <= 3:
-            return True
-        else:
-            return False        
+        return arg2_start - arg1_finish <= 3
+    conn_indices = [x for span in datum.Connective_SpanList for x in span]
+    conn_start = min(conn_indices)
+    conn_finish = max(conn_indices)
+    return (conn_start - arg1_finish) <= 3 and (arg2_start - conn_finish) <= 3        
 
 def connective_initial(sem_re, output_filename):
     """
@@ -162,15 +149,15 @@ def connective_initial(sem_re, output_filename):
         # Restrict to examples that are either Implicit or Explicit and have no supplementary text:
         rel = datum.Relation
         if rel in ('Implicit', 'Explicit') and not datum.Sup1_RawText and not datum.Sup2_RawText:
-            # Further restrict to the class of semantic relations captured by sem_re:            
-            if sem_re.search(datum.ConnHeadSemClass1):                
+            # Further restrict to the class of semantic relations captured by sem_re:
+            if sem_re.search(datum.ConnHeadSemClass1):    
                 # Make sure that Arg1, the connective, and Arg2 are all adjacent:
                 if adjacency_check(datum):
                     # Stick to simple connectives: for Explicit, the connective and its head are the same;
                     # for Implicit, there is no secondary connective.
                     if (rel == 'Explicit' and datum.ConnHead == datum.Connective_RawText) or \
                        (rel == 'Implicit' and not datum.Conn2):
-                        itemId = "%s/%s" % (datum.Section, datum.FileNumber)
+                        itemId = f"{datum.Section}/{datum.FileNumber}"
                         print(itemId)
                         conn = datum.conn_str(distinguish_implicit=False) # We needn't flag them, since column 2 does that.
                         # Store in a dict with file number keys to avoid taking two sentences from the same file:
@@ -208,12 +195,8 @@ def word_pair_frequencies(output_filename):
     """
     d = defaultdict(int)
     pdtb = CorpusReader('pdtb2.csv')
-    for datum in pdtb.iter_data(display_progress=True):
-        if datum.Relation == 'Implicit':
-            # Gather the word-pair features for inclusion in d.
-            # See the Datum methods arg1_words() and arg2_words.
-            pass
-            
+    for _ in pdtb.iter_data(display_progress=True):
+        pass
     # Finally, pickle the results.
     pickle.dump(d, file(output_filename, 'w'))
 
@@ -268,8 +251,8 @@ def contingencies(row_function, column_function):
         if row_val and col_val:
             d[(row_val, col_val)] += 1
     # Convert to matrix format:
-    row_classes = sorted(set([x[0] for x in list(d.keys())]))
-    col_classes = sorted(set([x[1] for x in list(d.keys())]))
+    row_classes = sorted({x[0] for x in list(d.keys())})
+    col_classes = sorted({x[1] for x in list(d.keys())})
     observed = numpy.zeros((len(row_classes), len(col_classes)))
     for i, row in enumerate(row_classes):
         for j, col in enumerate(col_classes):
@@ -300,12 +283,13 @@ def contingencies(row_function, column_function):
 def print_matrix(m, rownames, colnames):
     """Pretty-print a 2d numpy array with row and column names."""
     # Max column width:
-    col_width = max([len(x) for x in rownames + colnames]) + 4
+    col_width = max(len(x) for x in rownames + colnames) + 4
     # Row-formatter:
     def fmt_row(a):
         return "".join(map((lambda x : str(x).rjust(col_width)), a))
+
     # Printing:
-    print(fmt_row([''] + colnames))            
+    print(fmt_row([''] + colnames))
     for i, rowname in enumerate(rownames):
         row = [rowname]
         for j in range(len(colnames)):

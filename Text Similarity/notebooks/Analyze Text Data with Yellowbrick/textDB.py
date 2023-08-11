@@ -26,10 +26,9 @@ def load_data(name, download=True):
         if download:
             download_all()
         else:
-            raise ValueError((
-                "'{}' dataset has not been downloaded, "
-                "use the download.py module to fetch datasets"
-            ).format(name))
+            raise ValueError(
+                f"'{name}' dataset has not been downloaded, use the download.py module to fetch datasets"
+            )
 
     # Read the directories in the directory as the categories.
     categories = [
