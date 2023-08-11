@@ -39,7 +39,9 @@ class CorpusReader:
         i = 1
         for row in row_iterator:
             if display_progress:
-                sys.stderr.write("\r") ; sys.stderr.write("row %s" % i) ; sys.stderr.flush()
+                sys.stderr.write("\r")
+                sys.stderr.write(f"row {i}")
+                sys.stderr.flush()
                 i += 1
             yield Datum(row)
         if display_progress: sys.stderr.write("\n")
@@ -82,7 +84,7 @@ class Datum:
         The attribute names are given in the class variable Datum.header.
         """
         if row.__class__.__name__ in ('str', 'unicode'):
-            row = list(csv.reader([row.strip()]))[0]        
+            row = list(csv.reader([row.strip()]))[0]
         # Set the attributes.
         for i in range(len(row)):
             att_name = Datum.header[i]
@@ -90,16 +92,10 @@ class Datum:
             # Span lists.
             if re.search(r"SpanList", att_name):
                 row_value = self.__process_span_list(row_value)
-            # Gorn lists.
             elif re.search(r"GornList", att_name):
                 row_value = self.__process_gorn_list(row_value)
-            # Integer-valued.
             elif att_name in ('Connective_StringPosition', 'SentenceNumber'):
-                if row_value:
-                    row_value = int(row_value)
-                else:
-                    row_value = None
-            # Trees.
+                row_value = int(row_value) if row_value else None
             elif re.search(r"Trees", att_name):
                 row_value = self.__process_trees(row_value)            
                 # The rest are strings and so don't require special handling.
@@ -132,10 +128,7 @@ class Datum:
         Pragmatic contrast, Restatement, Synchrony
         """
         vals = self.semclass1_values()
-        if len(vals) >= 2:
-            return vals[1]
-        else:            
-            return None
+        return vals[1] if len(vals) >= 2 else None
 
     def tertiary_semclass1(self):
         """
@@ -152,16 +145,10 @@ class Datum:
         Succession, Unreal past, Unreal present
         """
         vals = self.semclass1_values()
-        if len(vals) >= 3:
-            return vals[2]
-        else:            
-            return None    
+        return vals[2] if len(vals) >= 3 else None    
 
     def semclass1_values(self):
-        if self.ConnHeadSemClass1:
-            return self.ConnHeadSemClass1.split(".")
-        else:
-            return [None]
+        return self.ConnHeadSemClass1.split(".") if self.ConnHeadSemClass1 else [None]
 
     ######################################################################
     # TOKENIZING AND POS-TAGGING WITH THE OPTION TO CONVERT
@@ -245,7 +232,7 @@ class Datum:
         nltk.stem.WordNetStemmer() on the list. wn_format=True merely
         converts to WordNet tags where possible, without stemming.
         """
-        return self.__pos("Arg%s" % index, wn_format=wn_format, lemmatize=lemmatize)
+        return self.__pos(f"Arg{index}", wn_format=wn_format, lemmatize=lemmatize)
 
     def arg1_attribution_pos(self, wn_format=False, lemmatize=False):
         """
@@ -272,7 +259,9 @@ class Datum:
         nltk.stem.WordNetStemmer() on the list. wn_format=True merely
         converts to WordNet tags where possibl, without stemming.
         """
-        return self.__pos("Arg%s_Attribution" % index, wn_format=wn_format, lemmatize=lemmatize)
+        return self.__pos(
+            f"Arg{index}_Attribution", wn_format=wn_format, lemmatize=lemmatize
+        )
 
     def connective_pos(self, wn_format=False, lemmatize=False):
         """
@@ -309,7 +298,7 @@ class Datum:
         nltk.stem.WordNetStemmer() on the list. wn_format=True merely
         converts to WordNet tags where possibl, without stemming.
         """
-        return self.__pos("Sup%s" % index, wn_format=wn_format, lemmatize=lemmatize)
+        return self.__pos(f"Sup{index}", wn_format=wn_format, lemmatize=lemmatize)
 
     def __pos(self, typ, wn_format=False, lemmatize=False):
         """
@@ -317,7 +306,7 @@ class Datum:
         typ strings (Arg1, Sup2, etc.)
         """
         results = []
-        trees = eval("self.%s_Trees" % typ)
+        trees = eval(f"self.{typ}_Trees")
         for tree in trees:
             results += tree.pos()
         # Lemmatizing implies converting to WordNet tags.
@@ -398,10 +387,7 @@ class Datum:
 
         1S ... 1F ... 2s ... 2f
         """
-        if self.relative_arg_order() == 'arg1_precedes_arg2':
-            return True
-        else:
-            return False
+        return self.relative_arg_order() == 'arg1_precedes_arg2'
 
     def arg2_precedes_arg1(self):
         """
@@ -411,10 +397,7 @@ class Datum:
 
         2S ... 2F ... 1S ... 1F
         """
-        if self.relative_arg_order() == 'arg2_precedes_arg1':
-            return True
-        else:
-            return False
+        return self.relative_arg_order() == 'arg2_precedes_arg1'
 
     def arg1_contains_arg2(self):
         """
@@ -422,10 +405,7 @@ class Datum:
 
         1S ... 2s ... 2f ... 1F
         """
-        if self.relative_arg_order() == 'arg1_contains_arg2':
-            return True
-        else:
-            return False
+        return self.relative_arg_order() == 'arg1_contains_arg2'
 
     def arg2_contains_arg1(self):
         """
@@ -433,10 +413,7 @@ class Datum:
 
         2S ... 1S ... 1F ... 2F 
         """
-        if self.relative_arg_order() == 'arg2_contains_arg1':
-            return True
-        else:
-            return False
+        return self.relative_arg_order() == 'arg2_contains_arg1'
 
     def arg1_precedes_and_overlaps_but_does_not_contain_arg2(self):
         """
@@ -446,10 +423,10 @@ class Datum:
 
         It seems that this is not attested in the data.
         """
-        if self.relative_arg_order() == 'arg1_precedes_and_overlaps_but_does_not_contain_arg2':
-            return True
-        else:
-            return False 
+        return (
+            self.relative_arg_order()
+            == 'arg1_precedes_and_overlaps_but_does_not_contain_arg2'
+        ) 
 
     def arg2_precedes_and_overlaps_but_does_not_contain_arg1(self):
         """
@@ -459,10 +436,10 @@ class Datum:
         
         It seems that this is not attested in the data.
         """
-        if self.relative_arg_order() == 'arg2_precedes_and_overlaps_but_does_not_contain_arg1':
-            return True
-        else:
-            return False        
+        return (
+            self.relative_arg_order()
+            == 'arg2_precedes_and_overlaps_but_does_not_contain_arg1'
+        )        
 
     ######################################################################
     # NORMALIZATION.
@@ -481,14 +458,12 @@ class Datum:
         Value: a str
         """
         rel = self.Relation
-        if rel == 'Explicit':
-            return self.ConnHead
-        elif rel == 'AltLex':
+        if rel == 'AltLex':
             return self.Connective_RawText
+        elif rel == 'Explicit':
+            return self.ConnHead
         elif rel == 'Implicit':
-            prefix = ""
-            if distinguish_implicit:
-                prefix = "Implicit="            
+            prefix = "Implicit=" if distinguish_implicit else ""
             return prefix + self.Conn1
         else:
             return None
@@ -513,7 +488,7 @@ class Datum:
         """
         if index not in (1,2):
             raise ArgumentError('index must be int 1 or int 2; was %s (type %s).\n' % (index, index.__class__.__.name__))
-        src = eval("self.Arg%s_Attribution_Source" % index)
+        src = eval(f"self.Arg{index}_Attribution_Source")
         if src == "Inh":
             src = self.Attribution_Source
         return src
@@ -528,12 +503,14 @@ class Datum:
         try:
             template = open(GRAPHVIZ_TEMPLATE_FILENAME).read()
         except:
-            raise Exception("Can't find the Graphviz template file %s" % GRAPHVIZ_TEMPLATE_FILENAME)
+            raise Exception(
+                f"Can't find the Graphviz template file {GRAPHVIZ_TEMPLATE_FILENAME}"
+            )
         # Title.
         new_line_removal = re.compile(r"\n\s*", re.M)
         cleaned_text = new_line_removal.sub(" ", self.FullRawText)
         title = '"%s\\n%s\\nSource: %s/wsj_00%s"' % (self.Relation, cleaned_text, self.Section, self.FileNumber)
-        template = template.replace("$TITLE", title)        
+        template = template.replace("$TITLE", title)
         # Attributes.
         attributes = dir(self)
         for att in attributes:
@@ -548,11 +525,11 @@ class Datum:
                 else:
                     val_str = '"(not pictured)"'
             elif val == "Inh":
-                val_str = '"%s / %s"' % (val, self.Attribution_Source)
-            else:                
-                val_str = '"%s"' % val            
+                val_str = f'"{val} / {self.Attribution_Source}"'
+            else:        
+                val_str = f'"{val}"'
             # Identify the variable in the template.
-            att_re = re.compile(r'"\$' + att.upper() + r'"', re.MULTILINE)            
+            att_re = re.compile(r'"\$' + att.upper() + r'"', re.MULTILINE)
             # Substitution string.            
             template = att_re.sub(val_str, template)
         # Remove attributes that have None as their value.
@@ -594,8 +571,9 @@ class Datum:
         if not s:
             return []
         parts = re.split(r"\s*;\s*", s)
-        seqs = list(map((lambda x : list(map(int, re.split(r"\s*\.\.\s*", x)))), parts))
-        return seqs
+        return list(
+            map((lambda x: list(map(int, re.split(r"\s*\.\.\s*", x)))), parts)
+        )
 
     def __process_gorn_list(self, s):
         """
@@ -608,8 +586,7 @@ class Datum:
         if not s:
             return []
         parts = re.split(r"\s*;\s*", s)
-        seqs = list(map((lambda x : list(map(int, re.split(r"\s*,\s*", x)))), parts))
-        return seqs
+        return list(map((lambda x : list(map(int, re.split(r"\s*,\s*", x)))), parts))
 
     def __process_trees(self, s):
         """
